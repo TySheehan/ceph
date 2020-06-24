@@ -5337,6 +5337,64 @@ void Monitor::count_metadata(const string& field, Formatter *f)
   f->close_section();
 }
 
+//Monitor.cc line 5340
+bool Monitor::check_daemon_versions(map<int,std::string> &error){
+//  map<int,std::string> error {{1,"hi"}, {2, "bye"}};
+  //this is the weirdest error if I change my map definition to map<int,string> my (*error)[q->first] completely breaks
+  string field = "ceph version";
+  int i = 0;
+  int warn = 0;
+  int start = 0;
+  string b = "Hello";
+  //the above is a placeholder for b
+  dout(1) << " this is before count_metadata" << dendl;
+  dout(1) << " this is before for auto& p : mon_metadata" << dendl;
+  for (auto& p : mon_metadata) {
+    //I believe that the above will take the monitor and find the version number of it, then
+    //save that value to m
+    // the above is set to p:10 for test purposes
+    //mon_metadata is the map thee monitor id to the metadata for that monitor, so p is an interator for the map
+    auto q = p.second.find(field);
+    //the above returns an iterator to the defired field ans saves it as q
+    auto l = q->second;
+    //the above gets the string value at the iterator in this case returning the daemon version
+    dout(1) << " this is inside for auto& p : mon_metadata" << dendl;
+    if (start == 0){
+      auto m = p.second.find(field);
+      auto b = m->second;
+      //take the first mom_metadata version and use that as the base to comapre to everything
+      //need to verify one more time the method to get the monitor ceph version and save it as m
+      //but I beleive the above will get the release version of ceph, or at least the name of it
+      //maybe also look into if I need the name or version number
+      start = 1;
+      dout(1) << " this is inside if start == 0" << dendl;
+    }
+    else if ((l != b) && (start != 0)) {
+//    else if ((start != 0)) {
+      //the above checks if the version number of the monitor and daemon are the same, if not then it goes into this statement
+      auto x = p.second.find("daemon_id");
+      //the above returns an iterator to the defired field ans saves it as x
+      auto z = x->second;
+      //the above gets the string value at the iterator in this case returning the daemon id
+      error[i] = z;
+      //the above will take the id number of the current daemon and add it to the list error at key i
+      i = i + 1;
+      warn = 1;
+      dout(1) << " this is inside if start != 0" << dendl;
+//      dout(1) << "this is inside else if ";
+    }
+    dout(1) << " this is after else if" << dendl;
+  }
+  if (warn == 1){
+    dout(1) << " this is inside if warn == 1" << dendl;
+    return true;
+  }
+  else {
+    dout(1) << " this is inside if warn != 1" << dendl;
+    return false;
+  }
+}
+
 int Monitor::print_nodes(Formatter *f, ostream& err)
 {
   map<string, list<string> > mons;	// hostname => mon
