@@ -16,6 +16,7 @@
 #include <limits.h>
 #include <sstream>
 #include <regex>
+#include <time.h>
 
 #include "include/ceph_assert.h"
 #include "include/common_fwd.h"
@@ -61,6 +62,10 @@ using ceph::mono_clock;
 using ceph::mono_time;
 using ceph::parse_timespan;
 using ceph::timespan_str;
+
+time_t start = time(NULL);
+//above is a global variable used in the function bool HealthMonitor::check_leader_health()
+
 static ostream& _prefix(std::ostream *_dout, const Monitor *mon,
                         const HealthMonitor *hmon) {
   return *_dout << "mon." << mon->name << "@" << mon->rank
@@ -681,6 +686,78 @@ bool HealthMonitor::check_leader_health()
   }
 
   health_check_map_t next;
+
+//at HealthMonitor.cc line 685
+ // DAE_VERSION_INCORRECT
+  std::map<int, std::string> wrong;
+//  bool yes = (mon/Monitor::check_daemon_versions(&wrong);
+//mon/Monitor::check_daemon_versions(wrong)
+  //despite including mon/Monitor.h I can't simply call Monitor mime and create an object 
+  //mime of class Monitor
+//  int i = 0;
+  double timeout = 50;
+  //the above is used to set the amount of time the program should wait before printing the error
+  //I wonder if I should switch the order of the two if statements so the program waits a certain time
+  //before checking if there are any errors instead of constantly checking and printing after a certain
+  //time ahs passed
+  double out = 90;
+  //the above is used to tell the program when a reported error is considered a seperate incident from
+  //a previously reported one
+  int i = 0;
+  //if (i == 0){
+  if (mon->check_daemon_versions(wrong)){
+  //use vstart
+  //temporarily comment out the above to test the monitor file
+    time_t current = time(NULL);
+    dout(1) << " this is difftime " << difftime(start, current) << dendl;
+//    struct tm current = *localtime(&now);
+    //above takes the current time generalizes and saves it as current
+    //when the error is printed then counter is reset to the current time plus the specififed timeout time
+    //if ((timeout < difftime(current, start)) && (difftime(current, start) < out)){
+    if ((timeout < difftime(current, start)) && (difftime(current, start) < out)){
+//  if ((timeout < difftime(current, start))){
+      ostringstream ss, ds;
+      //maybe change HEALTH_WARN to HEALTH_ERROR
+//      for (auto& i : wrong) {
+      ss << "HEALTH ERR (DAE_INCORRECT_VERSION) \n";
+      auto& d = next.add("DAE_INCORRECT_VERSION", HEALTH_WARN, ss.str(), 1);
+
+      while (i < 10){
+//        ds << "daemon id " << i.first << " is running an incorrect version \n";
+        ds << "this is inside health while loop " ;
+        i = i + 1;
+        if( i == 10){
+          d.detail.push_back(ds.str());
+        }
+      }
+//      start = time(NULL);
+      //struct tm start = *localtime(&base);
+      //now that the error message has been printed the program saves the current time as the base for
+      //new error reports
+      dout(1) << __func__ << " it is finished " << dendl;
+      dout(1) << "this is inside health " << dendl;
+    }
+    else if (difftime(current, start) > out){
+      dout(1) << __func__ << " this is difftime in else if" << difftime(start, current) << dendl;
+      start = time(NULL);
+      //when a new error has been reported 
+//      struct tm start = *localtime(&base);
+      //in the case that there is an error report at a time far in the future of the previous report the above
+      //else if statement tells the program to treat this as a new event instead of combining the two into one event
+      //and restart the start time
+    }
+  }
+  else{
+    start = time(NULL);
+    //when there are no errors then start is set to the current time to represent the time since there were no errors
+    //when there is an error and the time between an error being detected and start is greater than current
+    //print the error message once this exceeds out the program assumes a new error was detected and repeats
+    //struct tm start = *localtime(&base);
+    //above gets the time when the program starts running and generalizes it
+    //may need to change start to start_tm
+    //I do worry that the above will not be persistent through runs so may need to place the abvoe code elesewhere
+    //also pretty sure the abvoe code is written in C not C++
+  }
 
   // MON_DOWN
   {
