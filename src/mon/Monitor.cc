@@ -5339,45 +5339,60 @@ void Monitor::count_metadata(const string& field, Formatter *f)
 
 //Monitor.cc line 5340
 bool Monitor::check_daemon_versions(map<int,std::string> &error){
-  string field = "ceph version";
+  string field = "ceph_version";
+  string field2 = "name";
   int i = 0;
   int warn = 0;
   int start = 0;
   string b = "Hello";
-  //the above is a placeholder for b
+  //the above is a placeholder for b until it is redefined below as the version number of the first daemon
   dout(1) << " this is before count_metadata" << dendl;
-  dout(1) << " this is before for auto& p : mon_metadata" << dendl;
   for (auto& p : mon_metadata) {
+    dout(1) << "this is inside for mon_metadata" << dendl;
     //mon_metadata is the map thee monitor id to the metadata for that monitor, so p is an interator for the map
     //p cycles through each iteration of mon_metadata
+    dout(1) << "this is p " << p << dendl;
+    dout(1) << "this is p.second " << p.second << dendl;
     auto q = p.second.find(field);
     //the above returns an iterator to the defired field ans saves it as q
-    auto l = q->second;
+    
+    string l = q->second;
+    dout(1) << "this is inside for mon_metadata and this i l " << l << dendl;
+
+// based on testing it would appear the above command is what is causing issues therefore it has been commented out temporarily
+//but it's not the only issue apparently
     //the above gets the string value at the iterator in this case returning the daemon version
     dout(1) << " this is inside for auto& p : mon_metadata" << dendl;
+    //dout(1) << " this is inside for auto& p : mon_metadata this is start " << start << dendl;
+//    dout(1) << " this is mon_metadata or l" << l << dendl;
+    dout(1) << "this is get_type_name " << get_state_name() << dendl;
     if (start == 0){
-      auto m = p.second.find(field);
-      auto b = m->second;
-      //take the first mom_metadata version and use that as the base to comapre to everything
+      dout(1) << " this is inside start == 0 start" << dendl;
+      auto b = l;
       start = 1;
-      dout(1) << " this is inside if start == 0" << dendl;
+      dout(1) << " this is inside if start == 0 end" << dendl;
     }
-    else if ((l != b) && (start != 0)) {
-//    else if ((start != 0)) {
+//    else if ((l != b) && (start != 0)) {
+    else if ((start != 0)) {
       //the above checks if the version number of the monitor and daemon are the same, if not then it goes into this statement
-      auto x = p.second.find("daemon_id");
+//      auto x = p.second.find("entity_name");
       //the above returns an iterator to the defired field ans saves it as x
-      auto z = x->second;
+      dout(1) << " this is before string z = x->second" << dendl;
+      //string z = to_string(p);
+      auto z = p.first;
+//      auto z = x->first;
+      //string z = "132454345";
       //the above gets the string value at the iterator in this case returning the daemon id
       error[i] = z;
+      //assuming p is rank need to make sure it can convert if not maybe trying changing
       //the above will take the id number of the current daemon and add it to the list error at key i
+//      dout(1) << "this is z " << z << dendl;
       i = i + 1;
       warn = 1;
       dout(1) << " this is inside if start != 0" << dendl;
     }
-    dout(1) << " this is after else if" << dendl;
   }
-  if (warn == 1){
+  if (warn != 1){
     dout(1) << " this is inside if warn == 1" << dendl;
     return true;
   }
