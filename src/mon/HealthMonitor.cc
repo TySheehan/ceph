@@ -697,33 +697,38 @@ bool HealthMonitor::check_leader_health()
   //a previously reported one
   int i = 0;
   //if (i == 0){
+  dout(1) << "this is before check_daemon" << dendl;
   if (mon->check_daemon_versions(wrong)){
+//  if (i == 0){
     time_t current = time(NULL);
     dout(1) << " this is difftime " << difftime(start, current) << dendl;
     //above takes the current time generalizes and saves it as current
     //when the error is printed then counter is reset to the current time plus the specififed timeout time
-    //if ((timeout < difftime(current, start)) && (difftime(current, start) < out)){
-    if ((timeout < difftime(current, start)) && (difftime(current, start) < out)){
-//  if ((timeout < difftime(current, start))){
+    //if ((timeout < difftime(start, current)) && (difftime(current, start) < out)){
+//    if ((timeout < difftime(start, current)) && (difftime(current, start) < out)){
+//  if ((timeout < difftime(start, current))){
+    if(i == 0){
       ostringstream ss, ds;
       ss << "HEALTH ERR (DAE_INCORRECT_VERSION) \n";
       auto& d = next.add("DAE_INCORRECT_VERSION", HEALTH_WARN, ss.str(), 1);
-
-      while (i < 10){
-//        ds << "daemon id " << i.first << " is running an incorrect version \n";
-        ds << "this is inside health while loop " ;
-        i = i + 1;
-        if( i == 10){
-          d.detail.push_back(ds.str());
-        }
+//      unsigned g = 0;
+      for(auto& g:wrong){
+        auto j = g.first;
+        ds << "daemon id " << mon->monmap->get_name(j) << " is running an incorrect version \n";
+        dout(1) << "this is inside health while loop " << dendl;
+//        g = g + 1;
       }
+      //the above for loop goes through the entire wrong map and prints each value which is the id number of
+      //each daemon with incorrect version or at least different version than the first daemon in the cluster
+      //meaning all the daemon listed could potentially be the ones with correct versions
+      d.detail.push_back(ds.str());
       //struct tm start = *localtime(&base);
       //now that the error message has been printed the program saves the current time as the base for
       //new error reports
       dout(1) << __func__ << " it is finished " << dendl;
       dout(1) << "this is inside health " << dendl;
     }
-    else if (difftime(current, start) > out){
+    else if (difftime(start, current) > out){
       dout(1) << __func__ << " this is difftime in else if" << difftime(start, current) << dendl;
       start = time(NULL);
       //in the case that there is an error report at a time far in the future of the previous report the above
