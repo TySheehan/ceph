@@ -690,12 +690,12 @@ bool HealthMonitor::check_leader_health()
 //at HealthMonitor.cc line 685
  // DAE_VERSION_INCORRECT
   std::map<int, std::string> wrong;
-  double timeout = 50;
+  double timeout = 5;
   //the above is used to set the amount of time the program should wait before printing the error
   double out = 90;
   //the above is used to tell the program when a reported error is considered a seperate incident from
   //a previously reported one
-  int i = 0;
+  //int i = 0;
   //if (i == 0){
   dout(1) << "this is before check_daemon" << dendl;
   if (mon->check_daemon_versions(wrong)){
@@ -704,10 +704,10 @@ bool HealthMonitor::check_leader_health()
     dout(1) << " this is difftime " << difftime(start, current) << dendl;
     //above takes the current time generalizes and saves it as current
     //when the error is printed then counter is reset to the current time plus the specififed timeout time
-    //if ((timeout < difftime(start, current)) && (difftime(current, start) < out)){
-//    if ((timeout < difftime(start, current)) && (difftime(current, start) < out)){
-//  if ((timeout < difftime(start, current))){
-    if(i == 0){
+    //if ((timeout < difftime(current, start)) && (difftime(current, start) < out)){
+//    if ((timeout < difftime(current, start)) && (difftime(current, start) < out)){
+  if ((timeout < difftime(current, start))){
+    //if(i == 0){
       ostringstream ss, ds;
       ss << "HEALTH ERR (DAE_INCORRECT_VERSION) \n";
       auto& d = next.add("DAE_INCORRECT_VERSION", HEALTH_WARN, ss.str(), 1);
@@ -715,7 +715,8 @@ bool HealthMonitor::check_leader_health()
       for(auto& g:wrong){
         auto j = g.first;
         ds << "daemon id " << mon->monmap->get_name(j) << " is running an incorrect version \n";
-        dout(1) << "this is inside health while loop " << dendl;
+//        dout(1) << "this is the daemon id " << mon->monmap->get_name(j) << " is running an incorrect version \n";
+      //  dout(1) << "this is inside health while loop " << dendl;
 //        g = g + 1;
       }
       //the above for loop goes through the entire wrong map and prints each value which is the id number of
@@ -727,6 +728,7 @@ bool HealthMonitor::check_leader_health()
       //new error reports
       dout(1) << __func__ << " it is finished " << dendl;
       dout(1) << "this is inside health " << dendl;
+      start = time(NULL);
     }
     else if (difftime(start, current) > out){
       dout(1) << __func__ << " this is difftime in else if" << difftime(start, current) << dendl;
@@ -737,7 +739,7 @@ bool HealthMonitor::check_leader_health()
     }
   }
   else{
-    start = time(NULL);
+//    start = time(NULL);
     //when there are no errors then start is set to the current time to represent the time since there were no errors
     //when there is an error and the time between an error being detected and start is greater than current
     //print the error message once this exceeds out the program assumes a new error was detected and repeats
