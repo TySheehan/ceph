@@ -689,62 +689,32 @@ bool HealthMonitor::check_leader_health()
 
 //at HealthMonitor.cc line 685
  // DAE_VERSION_INCORRECT
-  std::map<int, std::string> wrong;
+  std::map<int, int> wrong;
   double timeout = 5;
   //the above is used to set the amount of time the program should wait before printing the error
   double out = 90;
-  //the above is used to tell the program when a reported error is considered a seperate incident from
-  //a previously reported one
-  //int i = 0;
-  //if (i == 0){
-  dout(1) << "this is before check_daemon" << dendl;
+  //the above is used to tell the program when a reported error is considered a seperate incident from a previously reported one
   if (mon->check_daemon_versions(wrong)){
-//  if (i == 0){
     time_t current = time(NULL);
-    dout(1) << " this is difftime " << difftime(start, current) << dendl;
-    //above takes the current time generalizes and saves it as current
-    //when the error is printed then counter is reset to the current time plus the specififed timeout time
-    //if ((timeout < difftime(current, start)) && (difftime(current, start) < out)){
-//    if ((timeout < difftime(current, start)) && (difftime(current, start) < out)){
-  if ((timeout < difftime(current, start))){
-    //if(i == 0){
+    if ((timeout < difftime(current, start))){
+      dout(1) << "this is yes" << dendl;
       ostringstream ss, ds;
       ss << "HEALTH ERR (DAE_INCORRECT_VERSION) \n";
       auto& d = next.add("DAE_INCORRECT_VERSION", HEALTH_WARN, ss.str(), 1);
-//      unsigned g = 0;
       for(auto& g:wrong){
-        auto j = g.first;
+        int j = g.second;
         ds << "daemon id " << mon->monmap->get_name(j) << " is running an incorrect version \n";
-//        dout(1) << "this is the daemon id " << mon->monmap->get_name(j) << " is running an incorrect version \n";
-      //  dout(1) << "this is inside health while loop " << dendl;
-//        g = g + 1;
       }
-      //the above for loop goes through the entire wrong map and prints each value which is the id number of
-      //each daemon with incorrect version or at least different version than the first daemon in the cluster
-      //meaning all the daemon listed could potentially be the ones with correct versions
+      //the above for loop goes through the entire wrong map and saves the puts each value to get_name which returns the name of
+      //each daemon with incorrect version 
       d.detail.push_back(ds.str());
-      //struct tm start = *localtime(&base);
-      //now that the error message has been printed the program saves the current time as the base for
-      //new error reports
-      dout(1) << __func__ << " it is finished " << dendl;
-      dout(1) << "this is inside health " << dendl;
       start = time(NULL);
+      //now that the error message has been printed the program saves the current time as the base for new error reports
     }
     else if (difftime(start, current) > out){
-      dout(1) << __func__ << " this is difftime in else if" << difftime(start, current) << dendl;
       start = time(NULL);
-      //in the case that there is an error report at a time far in the future of the previous report the above
-      //else if statement tells the program to treat this as a new event instead of combining the two into one event
-      //and restart the start time
     }
   }
-  else{
-//    start = time(NULL);
-    //when there are no errors then start is set to the current time to represent the time since there were no errors
-    //when there is an error and the time between an error being detected and start is greater than current
-    //print the error message once this exceeds out the program assumes a new error was detected and repeats
-  }
-
   // MON_DOWN
   {
     int max = mon->monmap->size();
