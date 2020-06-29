@@ -5360,7 +5360,6 @@ bool Monitor::check_daemon_versions(map<int,int> &error){
     }
     else if ((l != b) && (start != 0)) {
       //the above checks if the version number of the monitor and daemon are the same, if not then it goes into this statement
-//      int z = p.first;
       //the above gets the interger value of 
       error[i] = p.first;
       //the above will take the rank of the current daemon and add it to the list error at location i

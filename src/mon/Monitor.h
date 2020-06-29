@@ -26,7 +26,6 @@
 #include <errno.h>
 #include <cmath>
 #include <string>
-#include <map>
 
 #include "include/types.h"
 #include "include/health.h"
