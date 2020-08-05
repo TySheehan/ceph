@@ -8,7 +8,7 @@ import threading
 import uuid
 from prettytable import PrettyTable
 from mgr_module import MgrModule
-
+from datetime import datetime, timedelta
 """
 Some terminology is made up for the purposes of this module:
 
@@ -23,8 +23,10 @@ INTERVAL = 5
 
 PG_NUM_MIN = 32  # unless specified on a per-pool basis
 
+
 def nearest_power_of_two(n):
     v = int(n)
+
 
     v -= 1
     v |= v >> 1
@@ -111,6 +113,8 @@ class PgAutoscaler(MgrModule):
         # So much of what we do peeks at the osdmap that it's easiest
         # to just keep a copy of the pythonized version.
         self._osd_map = None
+        self.old_values = {1: {'times':0, 'unused': 0, 'actual_unused' : 0, 'add' : 0, 'actual_add' : 0}}
+        self.start = datetime.now().date()
 
     def config_notify(self):
         for opt in self.NATIVE_OPTIONS:
@@ -306,6 +310,20 @@ class PgAutoscaler(MgrModule):
 
         ret = []
 
+        current = datetime.now().date()
+
+        check_time = 0
+
+        later = self.start + timedelta(hours = 24)
+
+        if current > later:
+            self.start = current
+            check_time = 1
+        #check if 24 hours have passed
+
+        total_number_pools = len(pools)
+        #get length of pools
+
         # iterate over all pools to determine how they should be sized
         for pool_name, p in pools.items():
             pool_id = p['pool']
@@ -339,6 +357,7 @@ class PgAutoscaler(MgrModule):
 
             pool_raw_used = max(pool_logical_used, target_bytes) * raw_used_rate
             capacity_ratio = float(pool_raw_used) / capacity
+            even_ratio = 1/total_number_pools
 
             self.log.info("effective_target_ratio {0} {1} {2} {3}".format(
                 p['options'].get('target_size_ratio', 0.0),
@@ -350,13 +369,55 @@ class PgAutoscaler(MgrModule):
                                                   root_map[root_id].total_target_bytes,
                                                   capacity)
 
-            final_ratio = max(capacity_ratio, target_ratio)
+            final_ratio = max(capacity_ratio, target_ratio, even_ratio)
 
             # So what proportion of pg allowance should we be using?
             pool_pg_target = (final_ratio * root_map[root_id].pg_target) / p['size'] * bias
 
             final_pg_target = max(p['options'].get('pg_num_min', PG_NUM_MIN),
                                   nearest_power_of_two(pool_pg_target))
+
+            if final_ratio == even_ratio:
+                total = (int(pool_stats.get("rd",0)) + int(pool_stats.get("wr",0)))
+                if pool_id in self.old_values.keys():
+                    if check_time == 1:
+                        if self.old_values[pool_id]['times'] == total:
+                            self.old_values[pool_id]['unused'] += 1
+                            self.old_values[pool_id]['add'] = 0
+                            self.old_values[pool_id]['actual_add'] = 0
+                            if final_pg_target - self.old_values[pool_id]['unused'] < PG_NUM_MIN:
+                                self.old_values[pool_id]['unused'] -= 1
+                            else:
+                                for k1 in self.old_values:
+                                    if self.old_values[k1]['unused'] == 0 and pool_id != k1:
+                                        self.old_values[k1]['add'] += 1
+                        else:
+                            if self.old_values[pool_id]['unused'] != 0:
+                                self.old_values[pool_id]['unused'] = 0
+                                self.old_values[pool_id]['actual_unused'] = 0
+                            else:
+                                for k2 in self.old_values:
+                                    while self.old_values[k2]['add'] != 0 and self.old_values[pool_id]['unused'] != 0:
+                                        if k2 != self.old_values[pool_id]:
+                                            self.old_values[k2]['add'] -= 1
+                                            self.old_values[pool_id]['unused'] -= 1
+                    else:
+                        if self.old_values[pool_id]['add'] - self.old_values[pool_id]['actual_add'] > 7:
+                            for k3 in self.old_values:
+                                while self.old_values[pool_id]['actual_add'] < self.old_values[pool_id]['add'] and self.old_values[k3]['unused'] > self.old_values[k3]['actual_unused']:
+                                        if k3 != self.old_values[pool_id]:
+                                            self.old_values[pool_id]['actual_add'] += 1
+                                            self.old_values[k3]['actual_unused'] +=1
+                                final_pg_target += self.old_values[pool_id]['actual_add'] 
+                        elif int(self.old_values[pool_id]['unused']) - int(self.old_values[pool_id]['actual_unused']) > 7:
+                            self.old_values[pool_id]['actual_unused'] += self.old_values[pool_id]['unused']
+                        if self.old_values[pool_id]['actual_add'] != 0:
+                            final_pg_target += self.old_values[pool_id]['actual_add']
+                        elif self.old_values[pool_id]['actual_unused'] != 0:
+                            final_pg_target -= self.old_values[pool_id]['actual_unused']
+                        final_pg_target = nearest_power_of_two(final_pg_target)
+                else:
+                    self.old_values[pool_id]= {'times' : total, 'unused' : 0, 'actual_unused' : 0, 'add' : 0, 'actual_add' : 0}
 
             self.log.info("Pool '{0}' root_id {1} using {2} of space, bias {3}, "
                           "pg target {4} quantized to {5} (current {6})".format(
