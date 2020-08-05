@@ -16,6 +16,7 @@
 #include <limits.h>
 #include <sstream>
 #include <regex>
+#include <time.h>
 
 #include "include/ceph_assert.h"
 #include "include/common_fwd.h"
@@ -681,6 +682,27 @@ bool HealthMonitor::check_leader_health()
   }
 
   health_check_map_t next;
+
+ // DAE_VERSION_INCORRECT
+  std::map<int, std::pair<int, string>> wrong;
+  double timeout = 600;
+  if (mon->check_daemon_versions(wrong)){
+    time_t current = time(NULL);
+    if ((timeout < difftime(current, start))){
+      ostringstream ss, ds;
+      ss << "There are daemon running incorrect version of ceph \n";
+      auto& d = next.add("DAE_INCORRECT_VERSION", HEALTH_WARN, ss.str(), 1);
+      for(auto& g:wrong){
+        int rank = (g.second).first;
+        string version = (g.second).second;
+        ds << "daemon id " << mon->monmap->get_name(rank) << " is running incorrect ceph version: " << version <<" \n";
+      }
+      //the above for loop goes through the entire wrong map and saves the puts each value to get_name which returns the name of
+      //each daemon with incorrect version then prints the version each daemon is running
+      d.detail.push_back(ds.str());
+      start = time(NULL);
+    }
+  }
 
   // MON_DOWN
   {
